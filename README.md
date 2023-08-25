@@ -2,7 +2,7 @@
 
 YOLOv7-POSE was used for key point detection, Bytetrack for tracking, and STGCN for fall and other behavior recognition.
 
- <img width="600" height="300" src="./utils/figures/pose.png"> 
+ <img width="1200" height="300" src="./utils/figures/pose.png"> 
  
  Key point detection, run the command below:
 ```
