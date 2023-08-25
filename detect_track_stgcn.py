@@ -10,7 +10,7 @@ import torch.backends.cudnn as cudnn
 from numpy import random
 
 from models.experimental import attempt_load
-from utils.datasets import LoadStreams, LoadImages, letterbox
+from utils.datasets import LoadStreams, LoadImages
 from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path, save_one_box
 from utils.plots import colors, plot_one_box
@@ -23,43 +23,6 @@ import numpy as np
 
 # STGCN
 from stgcn.ActionsEstLoader import TSSTG
-
-from PIL import Image, ImageDraw
-from torchvision import transforms
-
-
-def draw_border(image, p1, p2, bbox_w, color, border_width, padding, radius):
-    draw = ImageDraw.Draw(image)
-    x1, y1 = p1
-    x2, y2 = p2
-
-    # Draw the outer border rectangle
-    draw.rectangle([(x1 - border_width, y1 - border_width), (x2 + border_width, y2 + border_width)], outline=color,
-                   width=border_width)
-
-    # Draw the inner rectangle with padding
-    draw.rectangle([(x1 + padding, y1 + padding), (x2 - padding, y2 - padding)], fill=(84, 61, 247))
-
-
-def rounded_rectangle(image, p1, p2, fill, radius):
-    draw = ImageDraw.Draw(image)
-    x1, y1 = p1
-    x2, y2 = p2
-
-    # Draw rounded rectangle
-    draw.rectangle([(x1, y1 + radius), (x2, y2 - radius)], fill=fill)
-    draw.rectangle([(x1 + radius, y1), (x2 - radius, y2)], fill=fill)
-    draw.pieslice([(x1, y1), (x1 + radius * 2, y1 + radius * 2)], 180, 270, fill=fill)
-    draw.pieslice([(x2 - radius * 2, y2 - radius * 2), (x2, y2)], 0, 90, fill=fill)
-    draw.pieslice([(x1, y2 - radius * 2), (x1 + radius * 2, y2)], 90, 180, fill=fill)
-    draw.pieslice([(x2 - radius * 2, y1), (x2, y1 + radius * 2)], 270, 360, fill=fill)
-
-
-def get_coord(kpts, index):
-    x = kpts[index * 2]
-    y = kpts[index * 2 + 1]
-    return x, y
-
 
 def detect(opt):
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label, track_thresh, track_buffer, match_thresh =\
@@ -81,7 +44,7 @@ def detect(opt):
     model = attempt_load(weights, map_location=device)  # load FP32 model
     stride = int(model.stride.max())  # model stride
 
-    # 跟踪器
+    # Tracker
     tracker = BYTETracker(track_thresh, track_buffer, match_thresh)  # ct+++
     frame_id = 0  # ct+++
 
@@ -132,7 +95,7 @@ def detect(opt):
         # Inference
         t1 = time_synchronized()
         pred = model(img, augment=opt.augment)[0]
-    #    print(pred[...,4].max())
+        print(pred[...,4].max())
         # Apply NMS
         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=kpt_label)
         t2 = time_synchronized()
@@ -166,83 +129,25 @@ def detect(opt):
                 # Write results
                 for det_index, (*xyxy, conf, cls) in enumerate(reversed(det[:, :6])):
                     Results.append([int(xyxy[0]), int(xyxy[1]), int(xyxy[2]), int(xyxy[3]), float(conf)])  # ct+++
+                    # print(np.array(Results))
 
                     # [[x,y,c],[x,y,c]...]
                     Result_kpts.append(del_tensor_ele(det[det_index, 6:], 3, 15).reshape(-1, 3))  # 存储13个kpt
                 # print(Result_kpts)
 
-                online_tlwhs, online_ids, action_results = track_main(tracker, np.array(Results), Result_kpts, frame_id,
+                online_tlwhs, online_ids, action_results, action_name = track_main(tracker, np.array(Results), Result_kpts, frame_id,
                                                                       1080, 1920,
                                                                         (1080, 1920), action_model, im0)  # ct+++
                 online_tlwhs = np.array(online_tlwhs).reshape(-1, 4)
                 online_xyxys = tlwh2xyxy(online_tlwhs)
                 outputs = np.concatenate((online_xyxys, np.array(online_ids).reshape(-1, 1)), axis=1)
-                
-                #### add icon ############################
-                icon = cv2.imread("icon.png")
-                cap = cv2.VideoCapture(source)
-                frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
-                
-                ret, frame = cap.read()
-                if ret:
-                    orig_image =frame
-                    
-                    #preporcess frames
-                    image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGB)
-                    image = letterbox(image, (frame_width), stride=64, auto=True)[0]
-                    image = transforms.ToTensor()(image)
-                    image = torch.tensor(np.array([image.numpy()]))
-                    
-                    image = image.to(device)
-                    image = image.float()
-                    start_time = time.time()
-                    
-                    img = image[0].permute(1, 2, 0)*255
-                    img = img.cpu().numpy().astype(np.uint8)
-                    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-                    
-                    # cv2.imshow("img", icon)
-                    # cv2.waitKey(0)
-                    
-                ############################################
 
-                    
                 # Write results
                 for det_index, (output, conf) in enumerate(zip(outputs, det[:, 4])):
 
                     xyxy = output[0:4]
                     id = output[4]
                     #print(xyxy)
-                    ############################################
-                    thre = (frame_height//2)+100
-                    kpts = det[det_index, 6:]
-                        
-                    bbox_left = output[0]
-                    bbox_top = output[1]
-                    bbox_w = output[2] - output[0]
-                    bbox_h = output[3] - output[1]
-            
-                    p1 = (int(output[0]), int(output[2]))
-                    p2 = (int(output[1]), int(output[3]))
-                    cx = int(output[0] + output[1])
-                    cy = int(output[2] + output[3])
-                    icon = cv2.resize(icon, (50,50), interpolation=cv2.INTER_LINEAR)
-                    difference = bbox_h-bbox_w
-                    ph = get_coord(kpts, 2)
-                    
-                    # img = img.cpu().numpy()
-                    # im = Image.fromarray(np.uint8(img))
-                    # print(img)
-                    
-                    if (difference <0):
-                        draw_border(im, p1, p2, bbox_w, (84, 61, 247), 10, 25, 24 )
-                        draw = ImageDraw.Draw(im)
-                        draw.rounded_rectangle((cx-10,cy-10, cx+60, cy+60), fill=(84,61,247), radius=15)
-                        np_img = np.array(im)
-                        np_img[cy:cy+50, cx:cx+50] = icon
-                        im = Image.fromarray(np.uint8(np_img))
-                    ############################################   
-                    
 
                     if save_txt:
                         # to MOT format
@@ -250,7 +155,6 @@ def detect(opt):
                         bbox_top = output[1]
                         bbox_w = output[2] - output[0]
                         bbox_h = output[3] - output[1]
-                            
                         # Write MOT compliant results to file
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * 10 + '\n') % (frame_idx + 1, id, bbox_left,  # MOT format
@@ -259,49 +163,23 @@ def detect(opt):
                     if view_img:  # Add bbox to image
                         label = f'{int(id)} {conf:.2f} {str(action_results[det_index])}'
                         kpts = det[det_index, 6:]
+                        warning_color = action_name
+                        # print(warning_color)
+                        
 
-                        plot_one_box(xyxy, im0, label=label, color=None,
+                        plot_one_box(warning_color, xyxy, im0, label=label, color=None,
                                      line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
                                      orig_shape=im0.shape[:2])
-                    
-                    # cap = cv2.VideoCapture(source)
-                    # frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
-                    # ##### add icon ############################
-                    # icon = cv2.imread("falldown.png")
-                    # ############################################
-                    
-                    # ###### fall detection ######################
-                    # thre = (frame_height//2)+100
-                    # for idx in range(outputs.shape[0]):
-                    #     kpts = outputs[idx, 7:].T
-                    #     # plot_tracking(img,kpts,3)
-                    #     xmin, ymin = (outputs[idx,2] - outputs[idx,4]/2), (outputs[idx,3] - outputs[idx,5]/2)
-                    #     xmax, ymax = (outputs[idx,2] + outputs[idx,4]/2), (outputs[idx,3] + outputs[idx,5]/2)
-                    #     p1 = (int(xmin), int(ymin))
-                    #     p2 = (int(xmax), int(ymax))
-                    #     dx = int(xmax) - int(xmin)
-                    #     dy = int(ymax) - int(ymax)
-                    #     cx = int(xmin + xmax) // 2
-                    #     cy = int(ymin + ymax) // 2
-                    #     icon = cv2.resize(icon, (50,50), interpolation=cv2.INTER_LINEAR)
-                    #     difference = dy-dx
-                    #     ph = Get_coord(kpts, 2)
-                    #     if ((difference<0) and (int(ph) > thre)) or (difference <0):
-                    #         draw_border(img, p1, p2, (84, 61, 247), 10, 25, 24 )
-                    #         im = Image.fromarray(img)
-                    #         draw = ImageDraw.Draw(im)
-                    #         draw.rounded_rectangle((cx-10,cy-10, cx+60, cy+60), fill=(84,61,247), radius=15)
-                    #         img = np.array(im)
-                    #         img[cy:cy+50, cx:cx+50] = icon
-                    # ############################################
+                        
+                        
 
             # Print time (inference + NMS)
-        #    # print(f'{s}Done. ({t2 - t1:.3f}s)')
+            print(f'{s}Done. ({t2 - t1:.3f}s)')
             # Stream results
             if view_img:
                 cv2.imshow(str(p), im0)
                 cv2.waitKey(1)  # 1 millisecond
-            
+                
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
@@ -320,8 +198,7 @@ def detect(opt):
                             save_path += '.mp4'
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
                     vid_writer.write(im0)
-            
-            
+
 
 
 # ct+++   action_model, frame
@@ -344,6 +221,7 @@ def track_main(tracker, detection_results, Result_kpts, frame_id, image_height, 
     aspect_ratio_thresh = 1.6  # +++++
     min_box_area = 10  # ++++
     action_results = []
+    action_name = 'pending..'
 
     for target in online_targets:
         tlwh = target.tlwh
@@ -358,6 +236,26 @@ def track_main(tracker, detection_results, Result_kpts, frame_id, image_height, 
                         f"{frame_id},{tid},{tlwh[0]:.2f},{tlwh[1]:.2f},{tlwh[2]:.2f},{tlwh[3]:.2f},{target.score:.2f},-1,-1,-1\n"
                     )
 
+        # action = 'pending..'
+        # clr = (0, 255, 0)
+        # # Use 30 frames time-steps to prediction.
+        # if len(target.keypoints_list) == 30:
+        #     pts = np.array(target.keypoints_list, dtype=np.float32)
+        #     out = action_model.predict(pts, frame.shape[:2])
+        #     action_name = action_model.class_names[out[0].argmax()]
+        #     action = '{}: {:.2f}%'.format(action_name, out[0].max() * 100)
+        #     if action_name == 'Fall Down':
+        #         clr = (255, 0, 0)
+        #     elif action_name == 'Lying Down':
+        #         clr = (255, 200, 0)
+        #     # print(action)
+        #     action = action
+        # action_results.append(action)
+        
+        # print(tlwh)
+        
+        #######################수정된 알고리즘######################################
+        # print(results)
         action = 'pending..'
         clr = (0, 255, 0)
         # Use 30 frames time-steps to prediction.
@@ -365,6 +263,9 @@ def track_main(tracker, detection_results, Result_kpts, frame_id, image_height, 
             pts = np.array(target.keypoints_list, dtype=np.float32)
             out = action_model.predict(pts, frame.shape[:2])
             action_name = action_model.class_names[out[0].argmax()]
+            if action_name != 'Fall Down' :
+                if tlwh[2] >= (tlwh[3]*1.5) :
+                    action_name = 'Fall Down'
             action = '{}: {:.2f}%'.format(action_name, out[0].max() * 100)
             if action_name == 'Fall Down':
                 clr = (255, 0, 0)
@@ -373,8 +274,9 @@ def track_main(tracker, detection_results, Result_kpts, frame_id, image_height, 
             # print(action)
             action = action
         action_results.append(action)
+        ############################################################################
 
-    return online_tlwhs, online_ids, action_results  # ct+++action_results
+    return online_tlwhs, online_ids, action_results, action_name  # ct+++action_results IADD action_name
 
 
 def tlwh2xyxy(x):
@@ -392,18 +294,17 @@ def del_tensor_ele(arr, index_a, index_b):
     arr1 = arr[0:index_a]
     arr2 = arr[index_b:]
     return torch.cat((arr1, arr2), dim=0)
-    
-#    print(f'Done. ({time.time() - t0:.3f}s)')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov7-w6-pose.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--weights', nargs='+', type=str, default='v8_m_pose.pt', help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default='test3.mp4', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', nargs= '+', type=int, default=960, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.1, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--view-img', default=False, action='store_true', help='display results')
+    parser.add_argument('--view-img', default=True, action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--save-txt-tidl', action='store_true', help='save results to *.txt in tidl format')
     parser.add_argument('--save-bin', action='store_true', help='save base n/w outputs in raw bin format')
@@ -428,7 +329,7 @@ if __name__ == '__main__':
     parser.add_argument("--match_thresh", type=float, default=0.8, help="matching threshold for tracking")  # ct+++
 
     opt = parser.parse_args()
-#    print(opt)
+    print(opt)
     check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
 
     with torch.no_grad():
@@ -438,5 +339,3 @@ if __name__ == '__main__':
                 strip_optimizer(opt.weights)
         else:
             detect(opt=opt)
-
-
