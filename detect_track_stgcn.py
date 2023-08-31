@@ -167,10 +167,13 @@ def detect(opt):
                         # print(warning_color)
                         
 
-                        plot_one_box(warning_color, xyxy, im0, label=label, color=None,
+                        # plot_one_box(warning_color, xyxy, im0, label=label, color=None,
+                        #              line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
+                        #              orig_shape=im0.shape[:2])
+
+                        plot_one_box(xyxy, im0, label=label, color=None,
                                      line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
                                      orig_shape=im0.shape[:2])
-                        
                         
 
             # Print time (inference + NMS)
