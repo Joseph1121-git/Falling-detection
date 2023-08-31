@@ -207,7 +207,7 @@ def tlwh2xyxy(x):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov7-w6-pose.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='pose_test1.mp4', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='fall-down.mp4', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', nargs= '+', type=int, default=960, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.1, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
