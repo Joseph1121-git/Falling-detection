@@ -24,12 +24,60 @@ import numpy as np
 # STGCN
 from stgcn.ActionsEstLoader import TSSTG
 
+# send_email.py
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.header import Header
+from email.utils import formataddr
+import os, json
+
+ENV_NAVER = json.loads(os.environ.get('naver_account', '{}'))
+
+
+# to: 받는 사람 배열
+# subject: 메일 제목
+# body: 메일 본문
+def sendNaver(to=[], subject='[긴급]넘어짐 감지 서비스 알림!!', body='귀하의 보호자께서 넘어진 후 10초간 움직임이 없습니다. 빠르게 확인해주세요.'):
+    try:
+
+        # 네이버 접속계정 정보
+        send_account    = ENV_NAVER['account']
+        send_pwd        = ENV_NAVER['pwd']
+        send_name       = ENV_NAVER['name']
+
+        smtp = smtplib.SMTP_SSL('smtp.naver.com', 465)
+        smtp.login(send_account, send_pwd)
+        
+        msg = MIMEMultipart('alternative')
+
+        msg['Subject'] = subject
+        msg['From'] = formataddr((str(Header(send_name, 'utf-8')), send_account))
+        msg['To'] = ', '.join(to)
+
+        msg.attach(MIMEText(body, 'html'))
+        smtp.sendmail(send_account, to, msg.as_string())
+
+        # 세션 종료
+        smtp.quit()
+        print("OK")
+        return "OK"
+    except Exception as ex: # 에러 종류
+        print('이메일 발송 에러', ex)
+        print(send_account)
+        print(send_pwd)
+        return ex
+
 def detect(opt):
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label, track_thresh, track_buffer, match_thresh =\
         opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.save_txt_tidl, opt.kpt_label,opt.track_thresh,opt.track_buffer,opt.match_thresh
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
+    
+    fall_down_count = 0
+    fps = 30  # 가정: 비디오의 프레임 레이트가 30fps
+    threshold = 10 * fps  # 1분 동안 지속되어야 함
 
     # Directories
     save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
@@ -95,7 +143,7 @@ def detect(opt):
         # Inference
         t1 = time_synchronized()
         pred = model(img, augment=opt.augment)[0]
-        print(pred[...,4].max())
+        # print(pred[...,4].max())
         # Apply NMS
         pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms, kpt_label=kpt_label)
         t2 = time_synchronized()
@@ -117,7 +165,7 @@ def detect(opt):
             s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
 
-            # det 包括51个关键点结果(x,y,cof)，6个box结果(xyxy,cof,cla)
+            # det contains 51 key point results (x, y, cof) and 6 box results (xyxy, cof, cla).
             if len(det):
                 # Rescale boxes from img_size to im0 size
                 scale_coords(img.shape[2:], det[:, :4], im0.shape, kpt_label=False)
@@ -141,7 +189,7 @@ def detect(opt):
                 online_tlwhs = np.array(online_tlwhs).reshape(-1, 4)
                 online_xyxys = tlwh2xyxy(online_tlwhs)
                 outputs = np.concatenate((online_xyxys, np.array(online_ids).reshape(-1, 1)), axis=1)
-
+                
                 # Write results
                 for det_index, (output, conf) in enumerate(zip(outputs, det[:, 4])):
 
@@ -164,7 +212,6 @@ def detect(opt):
                         label = f'{int(id)} {conf:.2f} {str(action_results[det_index])}'
                         kpts = det[det_index, 6:]
                         warning_color = action_name
-                        # print(warning_color)
                         
 
                         # plot_one_box(warning_color, xyxy, im0, label=label, color=None,
@@ -175,9 +222,28 @@ def detect(opt):
                                      line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
                                      orig_shape=im0.shape[:2])
                         
+                #######################수정된 알고리즘######################################
+                
+                
+                if action_name == 'Fall Down':
+                    fall_down_count += 1
+                    print(fall_down_count)
+                    if fall_down_count >= threshold:
+                        sendNaver(to=[ENV_NAVER['to']])
+                        print("Warning: Fall Down detected for 1 minute!")
+                        raise KeyboardInterrupt
+                        # fall_down_count = 0  # 카운터 초기화 (선택적)
+                else:
+                    fall_down_count = 0  # 'Fall Down'이 아니면 카운터 초기화
+                
+                ###########################################################################
+                    
+
+                        
 
             # Print time (inference + NMS)
-            print(f'{s}Done. ({t2 - t1:.3f}s)')
+            # print(f'{s}Done. ({t2 - t1:.3f}s)')
+            
             # Stream results
             if view_img:
                 cv2.imshow(str(p), im0)
@@ -274,7 +340,6 @@ def track_main(tracker, detection_results, Result_kpts, frame_id, image_height, 
                 clr = (255, 0, 0)
             elif action_name == 'Lying Down':
                 clr = (255, 200, 0)
-            # print(action)
             action = action
         action_results.append(action)
         ############################################################################
@@ -302,11 +367,11 @@ def del_tensor_ele(arr, index_a, index_b):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov7-w6-pose.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='fall-down.mp4', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='0', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', nargs= '+', type=int, default=960, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.1, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
-    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', default=True, action='store_true', help='display results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
     parser.add_argument('--save-txt-tidl', action='store_true', help='save results to *.txt in tidl format')
@@ -341,4 +406,5 @@ if __name__ == '__main__':
                 detect(opt=opt)
                 strip_optimizer(opt.weights)
         else:
+            # sendNaver(to=[ENV_NAVER['to']])
             detect(opt=opt)
