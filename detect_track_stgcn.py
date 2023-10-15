@@ -16,7 +16,7 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import colors, plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
-# 跟踪
+# track
 from bytetrack_utils.visualize import plot_tracking
 from bytetrack_utils.byte_tracker_new import BYTETracker
 import numpy as np
