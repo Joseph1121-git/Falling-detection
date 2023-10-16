@@ -24,60 +24,12 @@ import numpy as np
 # STGCN
 from stgcn.ActionsEstLoader import TSSTG
 
-# send_email.py
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.header import Header
-from email.utils import formataddr
-import os, json
-
-ENV_NAVER = json.loads(os.environ.get('naver_account', '{}'))
-
-
-# to: 받는 사람 배열
-# subject: 메일 제목
-# body: 메일 본문
-def sendNaver(to=[], subject='[긴급]넘어짐 감지 서비스 알림!!', body='귀하의 보호자께서 넘어진 후 10초간 움직임이 없습니다. 빠르게 확인해주세요.'):
-    try:
-
-        # 네이버 접속계정 정보
-        send_account    = ENV_NAVER['account']
-        send_pwd        = ENV_NAVER['pwd']
-        send_name       = ENV_NAVER['name']
-
-        smtp = smtplib.SMTP_SSL('smtp.naver.com', 465)
-        smtp.login(send_account, send_pwd)
-        
-        msg = MIMEMultipart('alternative')
-
-        msg['Subject'] = subject
-        msg['From'] = formataddr((str(Header(send_name, 'utf-8')), send_account))
-        msg['To'] = ', '.join(to)
-
-        msg.attach(MIMEText(body, 'html'))
-        smtp.sendmail(send_account, to, msg.as_string())
-
-        # 세션 종료
-        smtp.quit()
-        print("OK")
-        return "OK"
-    except Exception as ex: # 에러 종류
-        print('이메일 발송 에러', ex)
-        print(send_account)
-        print(send_pwd)
-        return ex
-
 def detect(opt):
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label, track_thresh, track_buffer, match_thresh =\
         opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.save_txt_tidl, opt.kpt_label,opt.track_thresh,opt.track_buffer,opt.match_thresh
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
-    
-    fall_down_count = 0
-    fps = 30  # 가정: 비디오의 프레임 레이트가 30fps
-    threshold = 10 * fps  # 1분 동안 지속되어야 함
 
     # Directories
     save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
@@ -221,22 +173,6 @@ def detect(opt):
                         plot_one_box(xyxy, im0, label=label, color=None,
                                      line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
                                      orig_shape=im0.shape[:2])
-                        
-                #######################수정된 알고리즘######################################
-                
-                
-                if action_name == 'Fall Down':
-                    fall_down_count += 1
-                    print(fall_down_count)
-                    if fall_down_count >= threshold:
-                        sendNaver(to=[ENV_NAVER['to']])
-                        print("Warning: Fall Down detected for 1 minute!")
-                        raise KeyboardInterrupt
-                        # fall_down_count = 0  # 카운터 초기화 (선택적)
-                else:
-                    fall_down_count = 0  # 'Fall Down'이 아니면 카운터 초기화
-                
-                ###########################################################################
                     
 
                         
@@ -305,24 +241,6 @@ def track_main(tracker, detection_results, Result_kpts, frame_id, image_height, 
                         f"{frame_id},{tid},{tlwh[0]:.2f},{tlwh[1]:.2f},{tlwh[2]:.2f},{tlwh[3]:.2f},{target.score:.2f},-1,-1,-1\n"
                     )
 
-        # action = 'pending..'
-        # clr = (0, 255, 0)
-        # # Use 30 frames time-steps to prediction.
-        # if len(target.keypoints_list) == 30:
-        #     pts = np.array(target.keypoints_list, dtype=np.float32)
-        #     out = action_model.predict(pts, frame.shape[:2])
-        #     action_name = action_model.class_names[out[0].argmax()]
-        #     action = '{}: {:.2f}%'.format(action_name, out[0].max() * 100)
-        #     if action_name == 'Fall Down':
-        #         clr = (255, 0, 0)
-        #     elif action_name == 'Lying Down':
-        #         clr = (255, 200, 0)
-        #     # print(action)
-        #     action = action
-        # action_results.append(action)
-        
-        # print(tlwh)
-        
         #######################수정된 알고리즘######################################
         # print(results)
         action = 'pending..'
@@ -406,5 +324,4 @@ if __name__ == '__main__':
                 detect(opt=opt)
                 strip_optimizer(opt.weights)
         else:
-            # sendNaver(to=[ENV_NAVER['to']])
             detect(opt=opt)
