@@ -16,6 +16,10 @@ Key point detection+Bytetrack+STGCN, run the command below:
 ```
 python detect_track_stgcn.py --weights "yolov7-w6-pose.pt" --kpt-label  --view-img
 ```
+Key point detection+Bytetrack+STGCN+Alarm_System, run the command below:
+```
+python detect_track_stgcn_alarm.py --weights "yolov7-w6-pose.pt" --kpt-label  --view-img
+```
 YOLO-Pose: [https://github.com/Bigtuo/YOLO-POSE-Bytetrack-STGCN]
 
 # yolov7-pose
