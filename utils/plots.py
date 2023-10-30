@@ -1,5 +1,13 @@
 # Plotting utils
-
+# def plot_one_box(x, im, color=None, label=None, line_thickness=3, kpt_label=False, kpts=None, steps=2, orig_shape=None, line_color2=None,thickness2=None ):
+#     # Plots one bounding box on image 'im' using OpenCV
+#     assert im.data.contiguous, 'Image not contiguous. Apply np.ascontiguousarray(im) to plot_on_box() input image.'
+#     tl = line_thickness or round(0.002 * (im.shape[0] + im.shape[1]) / 2) + 1  # line/font thickness
+#     color = color or [random.randint(0, 255) for _ in range(3)]
+#     c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
+#     line_color2 = line_color2 or (255,0,0)
+#     thickness2 = thickness2 or tl*1//3
+#     cv2.rectangle(im, c1, c2, line_color2, thickness2, lineType=cv2.LINE_AA)
 import glob
 import math
 import os
