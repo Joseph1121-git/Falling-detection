@@ -23,13 +23,20 @@ import numpy as np
 
 # STGCN
 from stgcn.ActionsEstLoader import TSSTG
-
+############################수정################################################
+icon_img = cv2.imread("icon.png")  # Replace 'icon.png' with your icon file
+icon_img = cv2.resize(icon_img, (50, 50))
+#################################################################################
 def detect(opt):
     source, weights, view_img, save_txt, imgsz, save_txt_tidl, kpt_label, track_thresh, track_buffer, match_thresh =\
         opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, opt.save_txt_tidl, opt.kpt_label,opt.track_thresh,opt.track_buffer,opt.match_thresh
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
         ('rtsp://', 'rtmp://', 'http://', 'https://'))
+    
+    fall_down_count = 0
+    fps = 30  # 가정: 비디오의 프레임 레이트가 30fps
+    threshold = 2 * fps  # 1분 동안 지속되어야 함
 
     # Directories
     save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
@@ -165,18 +172,33 @@ def detect(opt):
                         kpts = det[det_index, 6:]
                         warning_color = action_name
                         
+############################수정################################################
 
-                        # plot_one_box(warning_color, xyxy, im0, label=label, color=None,
-                        #              line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
-                        #              orig_shape=im0.shape[:2])
+                        if action_name=="Fall Down":
+                            plot_one_box(xyxy, im0, label=label, color=(84, 61, 247),
+                                     line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
+                                     orig_shape=im0.shape[:2], line_color2=(84, 61, 247), thickness2=16)
+                            # Calculate the center coordinates of the bounding box
+                            x_center = int((xyxy[0] + xyxy[2]) / 2)
+                            y_center = int((xyxy[1] + xyxy[3]) / 2)
 
-                        plot_one_box(xyxy, im0, label=label, color=None,
+                             # Calculate the top-left coordinates to place the icon
+                            x1 = x_center - 25  # Half of the resized icon's width
+                            y1 = y_center - 25  # Half of the resized icon's height
+                            x2 = x1 + 50
+                            y2 = y1 + 50
+
+                            
+                            # Overlay the resized icon at the center of the bounding box
+                            overlay_image(im0, icon_img, x1, y1, x2, y2)
+                        else:
+                            plot_one_box(xyxy, im0, label=label, color=None,
                                      line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
                                      orig_shape=im0.shape[:2])
-                    
-
-                        
-
+##########################################################################################################################                        
+                 
+                # print(im0)
+                       
             # Print time (inference + NMS)
             # print(f'{s}Done. ({t2 - t1:.3f}s)')
             
@@ -240,7 +262,7 @@ def track_main(tracker, detection_results, Result_kpts, frame_id, image_height, 
             results.append(
                         f"{frame_id},{tid},{tlwh[0]:.2f},{tlwh[1]:.2f},{tlwh[2]:.2f},{tlwh[3]:.2f},{target.score:.2f},-1,-1,-1\n"
                     )
-
+        
         #######################수정된 알고리즘######################################
         # print(results)
         action = 'pending..'
@@ -281,6 +303,12 @@ def del_tensor_ele(arr, index_a, index_b):
     arr2 = arr[index_b:]
     return torch.cat((arr1, arr2), dim=0)
 
+def overlay_image(background, overlay, x1, y1, x2, y2):
+    # Resize overlay image to 50x50 pixels
+    overlay_resized = cv2.resize(overlay, (50, 50))
+    
+    # Place the resized overlay image onto the background frame
+    background[y1:y2, x1:x2] = cv2.addWeighted(background[y1:y2, x1:x2], 1, overlay_resized, 1, 0)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
