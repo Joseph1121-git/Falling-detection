@@ -203,7 +203,8 @@ def detect(opt):
     if webcam:
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, stride=stride)
+        # camera 해상도 변경 파라미터 추가
+        dataset = LoadStreams(source, img_size=imgsz, stride=stride, desired_width=2560, desired_height=1440)
     else:
         dataset = LoadImages(source, img_size=imgsz, stride=stride)
 
