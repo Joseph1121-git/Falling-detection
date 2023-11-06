@@ -87,9 +87,9 @@ class EmailManager:
 # body: 메일 본문
 def sendNaver(to=[], subject='[긴급]넘어짐 감지 서비스 알림!!', body='귀하의 보호자께서 넘어진 후 30초간 움직임이 없습니다. 빠르게 조취를 취해주세요.',  capture_screen=False):
     try:
-        send_account = 'gyuhyeonhwang1121@naver.com'
-        send_pwd = 'joseph981121!'
-        send_name = 'Joseph'
+        send_account = 'Naver id address'
+        send_pwd = 'pw'
+        send_name = 'Your Name'
 
         smtp = smtplib.SMTP_SSL('smtp.naver.com', 465)
         smtp.login(send_account, send_pwd)
