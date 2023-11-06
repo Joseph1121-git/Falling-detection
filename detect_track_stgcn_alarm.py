@@ -23,6 +23,12 @@ import numpy as np
 
 # STGCN
 from stgcn.ActionsEstLoader import TSSTG
+
+############################수정################################################
+icon_img = cv2.imread("sub/icon.png")  # Replace 'icon.png' with your icon file
+icon_img = cv2.resize(icon_img, (50, 50))
+#################################################################################
+
 ##############################################수정된 알고리즘######################################
 
 # send_email.py
@@ -38,15 +44,28 @@ from email.mime.image import MIMEImage
 from email.header import Header
 from email.utils import formataddr
 
+##################################### WARNING SOUND #############################
+import subprocess
+
+# VLC 실행 경로 (VLC가 설치된 경로에 따라 변경할 것)
+vlc_path = r"C:\Program Files\VideoLAN\VLC\vlc.exe"
+
+# 파일 경로 (절대 경로 또는 상대 경로)
+file_path = "sub/Alarm.mp4"
+alarm_triggered = False  # 경고음이 시작되었는지 추적하기 위한 플래그
+
+#######################################################################################
+
 
 # Constants
 SMTP_SERVER = 'smtp.naver.com'
 SMTP_PORT = 465
 ENV_KEY = 'naver_account'
-IMAGE_PATH = r"C:\Users\황명주\OneDrive\바탕 화면\Bakjun\falling\Falling-detection\img2-1.jpg"
+IMAGE_PATH = "sub/gui.jpg"
 
 # Load environment variables
 ENV_NAVER = json.loads(os.environ.get('naver_account', '{}'))
+
 
 class EmailManager:
     def __init__(self):
@@ -66,11 +85,11 @@ class EmailManager:
 # to: 받는 사람 배열
 # subject: 메일 제목
 # body: 메일 본문
-def sendNaver(to=[], subject='[긴급]넘어짐 감지 서비스 알림!!', body='귀하의 보호자께서 넘어진 후 30초간 움직임이 없습니다. 빠르게 조취를 취해주세요.', capture_screen=False):
+def sendNaver(to=[], subject='[긴급]넘어짐 감지 서비스 알림!!', body='귀하의 보호자께서 넘어진 후 30초간 움직임이 없습니다. 빠르게 조취를 취해주세요.',  capture_screen=False):
     try:
-        send_account = ENV_NAVER['account']
-        send_pwd = ENV_NAVER['pwd']
-        send_name = ENV_NAVER['name']
+        send_account = 'gyuhyeonhwang1121@naver.com'
+        send_pwd = 'joseph981121!'
+        send_name = 'Joseph'
 
         smtp = smtplib.SMTP_SSL('smtp.naver.com', 465)
         smtp.login(send_account, send_pwd)
@@ -83,7 +102,7 @@ def sendNaver(to=[], subject='[긴급]넘어짐 감지 서비스 알림!!', body
 
         msg.attach(MIMEText(body, 'html'))
 
-        # 화면 캡쳐가 필요한 경우
+        #화면 캡쳐가 필요한 경우
         if capture_screen:
             img = ImageGrab.grab()
             buf = io.BytesIO()
@@ -276,31 +295,52 @@ def detect(opt):
                         label = f'{int(id)} {conf:.2f} {str(action_results[det_index])}'
                         kpts = det[det_index, 6:]
                         warning_color = action_name
-                        
+##################################################수정################################################
 
-                        # plot_one_box(warning_color, xyxy, im0, label=label, color=None,
-                        #              line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
-                        #              orig_shape=im0.shape[:2])
+                        if action_name=="Fall Down":
+                            plot_one_box(xyxy, im0, label=label, color=(84, 61, 247),
+                                     line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
+                                     orig_shape=im0.shape[:2], line_color2=(84, 61, 247), thickness2=16)
+                            # Calculate the center coordinates of the bounding box
+                            x_center = int((xyxy[0] + xyxy[2]) / 2)
+                            y_center = int((xyxy[1] + xyxy[3]) / 2)
 
-                        plot_one_box(xyxy, im0, label=label, color=None,
+                             # Calculate the top-left coordinates to place the icon
+                            x1 = x_center - 25  # Half of the resized icon's width
+                            y1 = y_center - 25  # Half of the resized icon's height
+                            x2 = x1 + 50
+                            y2 = y1 + 50
+
+                            
+                            # Overlay the resized icon at the center of the bounding box
+                            overlay_image(im0, icon_img, x1, y1, x2, y2)
+                        else:
+                            plot_one_box(xyxy, im0, label=label, color=None,
                                      line_thickness=opt.line_thickness, kpt_label=kpt_label, kpts=kpts, steps=3,
                                      orig_shape=im0.shape[:2])
+##########################################################################################################################
                         
-                #######################수정된 알고리즘######################################
+##############################################수정된 알고리즘######################################
                 
                 if action_name == 'Fall Down':
                     fall_down_count += 1
-                    # print(fall_down_count)
-                    if fall_down_count >= threshold:
-                        # sendNaver(to=[ENV_NAVER['to']], capture_screen=True)
+                    # 넘어짐 감지 횟수가 임계값에 도달하고, 경고음이 아직 시작되지 않았다면
+                    if fall_down_count >= threshold and not alarm_triggered:
+                        # 경고음 시작
+                        subprocess.Popen([vlc_path, file_path, '--intf', 'dummy', '--dummy-quiet', '--no-video'])
+                        # 이메일 전송
                         email_manager.send_email()
                         print("경고: 사용자가 넘어진지 30초 동안 움직임이 없습니다!")
-                        raise KeyboardInterrupt
-                        # fall_down_count = 0  # 카운터 초기화 (선택적)
+                        # 경고음 시작 플래그 설정
+                        alarm_triggered = True
+                        # 카운터 초기화 (경고음이 한 번만 실행되도록 하려면 이 부분을 제거합니다)
+                        # fall_down_count = 0
                 else:
-                    fall_down_count = 0  # 'Fall Down'이 아니면 카운터 초기화
+                    # 'Fall Down'이 아니면 카운터와 플래그 초기화
+                    fall_down_count = 0
+                    alarm_triggered = False
                 
-                ###########################################################################
+##################################################################################################
                     
 
                         
@@ -409,6 +449,14 @@ def del_tensor_ele(arr, index_a, index_b):
     arr2 = arr[index_b:]
     return torch.cat((arr1, arr2), dim=0)
 
+#######################수정된 알고리즘######################################
+def overlay_image(background, overlay, x1, y1, x2, y2):
+    # Resize overlay image to 50x50 pixels
+    overlay_resized = cv2.resize(overlay, (50, 50))
+    
+    # Place the resized overlay image onto the background frame
+    background[y1:y2, x1:x2] = cv2.addWeighted(background[y1:y2, x1:x2], 1, overlay_resized, 1, 0)
+############################################################################
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
