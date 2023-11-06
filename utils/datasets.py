@@ -265,7 +265,7 @@ class LoadWebcam:  # for inference
 
 
 class LoadStreams:  # multiple IP or RTSP cameras
-    def __init__(self, sources='streams.txt', img_size=640, stride=32):
+    def __init__(self, sources='streams.txt', img_size=640, stride=32, desired_width=None, desired_height=None):
         self.mode = 'stream'
         self.img_size = img_size
         self.stride = stride
@@ -288,6 +288,12 @@ class LoadStreams:  # multiple IP or RTSP cameras
                 s = pafy.new(s).getbest(preftype="mp4").url  # YouTube URL
             s = eval(s) if s.isnumeric() else s  # i.e. s = '0' local webcam
             cap = cv2.VideoCapture(s)
+            ############################## camera 해상도 변경 #######################
+            desired_width = desired_width
+            desired_height = desired_height
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, desired_width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, desired_height)
+            ########################################################################
             assert cap.isOpened(), f'Failed to open {s}'
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
