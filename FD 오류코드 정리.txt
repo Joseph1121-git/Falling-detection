@@ -1,0 +1,14 @@
+FD 오류코드 정리 (Window version)
+1. window vscode or powershell에서 conda activate가 안되는 경우
+	1) powershell 관리자모드로 실행
+	2) Powershell에 conda init powershell 입력
+	3) get-help Set-ExecutionPolicy 후 실행할거냐고 물으면 Y
+	4) Set-ExecutionPolicy RemoteSigned 후 또 실행할거냐고 물으면 Y
+	5) 재실행했을 때 (base)가 앞에 붙어나오면 정상
+2. pip install -r requirement.txt -> UnicodeDecodeError: 'cp949' codec can't decode byte 0xec in position 255: illegal multibyte sequence
+	1) requirement.txt 파일내에 한글이 있는 경우 지우고 다시 진행해보셈
+3. window에서 Cython-bbox 설치 오류
+	1) 다음 명령어를 실행 (설명: github에서 clone해와서 설치하는 방법)
+		git clone https://github.com/samson-wang/cython_bbox
+		cd cython_bbox
+		pip install -e ./

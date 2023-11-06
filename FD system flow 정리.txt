@@ -1,0 +1,15 @@
+FD system flow 정리
+*패키지 설치나 에러 수정후 안돼면 재부팅해보기
+1. 아나콘다 설치 (check add andaconda3 to my path enviroment variable) does it work? not yet
+2. vscode 설치
+3. 가상환경 만들기 ex) conda create -n FallingDetection python=3.9
+4. 가상환경 실행 ex) conda activate FallingDetection
+5. CUDA 버전에 맞는 파이토치 설치 ex) if CUDA 11.1
+	pip install torch==1.10.0+cu111 torchvision==0.11.0+cu111 torchaudio==0.10.0 -f https://download.pytorch.org/whl/torch_stable.html
+	check this site "https://pytorch.org/get-started/previous-versions/"
+6. VLC player 설치 -> 알람서비스를 사용하려면 해당 윈도우 64버전에 맞는 vlc player를 다운받아야함
+7. alarm 시스템 사용시 경로설정 (초기 설정) detect_track_stgcn_alarm.py에서
+	1) alarm 경고음 파일경로 수정
+	2) 시작 화면 파일경로 수정
+	3) send_account 계정 환경변수로 입력하거나, 아니면 직접 입력
+8. 원하는 시스템 실행-> 실행방법은 github readme 참조
